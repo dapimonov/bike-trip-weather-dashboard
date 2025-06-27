@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Велотрип Погода</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2rem;
+      background: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+    }
+    .city {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin: 0;
+      padding: 1rem;
+    }
+    .daily {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 0.9rem;
+    }
+    .day {
+      background: #e0f7fa;
+      padding: 0.5rem;
+      border-radius: 5px;
+      width: 120px;
+    }
+    .tripDay {
+      background: #e9cefc;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+<h1>Hanse Trip Weather Dashboard 🚴</h1>
+<div id="app"></div>
+
+<script>
+const cities = [
+  { name: "Ludwigslust", lat: 53.24, lon: 11.49, tripDates: [5] },
+  { name: "Schwerin", lat: 53.63, lon: 11.42, tripDates: [5] },
+  { name: "Lübow", lat: 53.85, lon: 11.33, tripDates: [5,6] },
+  { name: "Wismar", lat: 53.89, lon: 11.46, tripDates: [5,6] },
+  { name: "Lübeck", lat: 53.87, lon: 10.69, tripDates: [6,7] },
+  { name: "Kiel", lat: 54.32, lon: 10.13, tripDates: [7,8] },
+  { name: "Flensburg", lat: 54.78, lon: 9.43, tripDates: [8,9] }
+];
+
+async function getWeather({ lat, lon }) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&hourly=precipitation&timezone=Europe%2FBerlin&forecast_days=14`;
+  const res = await fetch(url);
+  return res.json();
+}
+
+function toMS(kmh) {
+  return (kmh / 3.6).toFixed(1);
+}
+
+function renderCityWeather(city, data) {
+  const container = document.createElement('div');
+  container.className = 'city';
+
+  const now = new Date();
+  const hour = now.getHours();
+  const currentPrecip = data.hourly?.precipitation?.[hour] ?? 0;
+  const isRaining = currentPrecip > 0 ? "Идёт дождь." : "Дождя нет.";
+  const {tripDates} = city;
+
+  const startDate = new Date('2025-07-05');
+  const finishDate = new Date('2025-07-09');
+
+  const dailyHtml = data.daily.time.filter(item => {
+    const targetDate = new Date(item);
+    return targetDate >= startDate && targetDate <= finishDate
+  }).map((date, i) => {
+    const [yyyy, mm, dd] = date.split('-');
+    return `
+      <div class="${tripDates.includes(+dd) ? 'day tripDay' : 'day'}">
+        <strong>${dd}.${mm}.${yyyy}</strong><br>
+        🌡️ ${data.daily.temperature_2m_min[i]}–${data.daily.temperature_2m_max[i]}°C<br>
+        💧 ${data.daily.precipitation_sum[i]} мм<br>
+        💨 ${toMS(data.daily.windspeed_10m_max[i])} м/с
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <h2>${city.name}, ${city.tripDates.join('-')}.07</h2>
+    <p><strong>Сейчас:</strong> ${data.current_weather.temperature}°C, ветер ${toMS(data.current_weather.windspeed)} м/с, осадки ${currentPrecip} мм – ${isRaining}</p>
+    <div class="daily">${dailyHtml}</div>
+  `;
+  document.getElementById('app').appendChild(container);
+}
+
+(async () => {
+  for (const city of cities) {
+    try {
+      const data = await getWeather(city);
+      renderCityWeather(city, data);
+    } catch (err) {
+      console.error("Ошибка для", city.name, err);
+    }
+  }
+})();
+</script>
+</body>
+</html>
